@@ -3,6 +3,9 @@
 class GoogleSheetsClient
 {
     const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
+    const TOKEN_URL = 'https://oauth2.googleapis.com/token';
+    const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
+    const SHEETS_API_URL = 'https://sheets.googleapis.com/v4/spreadsheets';
 
     private $clientSecretData;
     private $accessTokenInfo;
@@ -50,7 +53,7 @@ class GoogleSheetsClient
 
     private function authorize()
     {
-        $authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query([
+        $authUrl = self::AUTH_URL . '?' . http_build_query([
             'client_id' => $this->getClientId(),
             'redirect_uri' => $this->getRedirectUri(),
             'response_type' => 'code',
@@ -67,7 +70,7 @@ class GoogleSheetsClient
     public function handleAuthorizationCallback()
     {
         if (isset($_GET['code'])) {
-            $response = wp_remote_post('https://oauth2.googleapis.com/token', [
+            $response = wp_remote_post(self::TOKEN_URL, [
                 'body' => [
                     'code' => $_GET['code'],
                     'client_id' => $this->getClientId(),
@@ -110,7 +113,7 @@ class GoogleSheetsClient
 
     private function refreshAccessToken()
     {
-        $response = wp_remote_post('https://oauth2.googleapis.com/token', [
+        $response = wp_remote_post(self::TOKEN_URL, [
             'body' => [
                 'client_id' => $this->getClientId(),
                 'client_secret' => $this->getClientSecret(),
@@ -131,7 +134,7 @@ class GoogleSheetsClient
 
     public function readAllData()
     {
-        $url = 'https://sheets.googleapis.com/v4/spreadsheets/' . $this->spreadsheetId . '/values/' . $this->sheetGid;
+        $url = self::SHEETS_API_URL . '/' . $this->spreadsheetId . '/values/' . $this->sheetGid;
         $response = $this->doRequest($url);
 
         return isset($response['values']) ? $response['values'] : null;
@@ -139,7 +142,7 @@ class GoogleSheetsClient
 
     public function writeDataToCell($cell, $data)
     {
-        $url = 'https://sheets.googleapis.com/v4/spreadsheets/' . $this->spreadsheetId . '/values/' . $this->sheetGid . '!' . $cell . '?valueInputOption=RAW';
+        $url = self::SHEETS_API_URL . '/' . $this->spreadsheetId . '/values/' . $this->sheetGid . '!' . $cell . '?valueInputOption=RAW';
         $body = json_encode(['values' => [[is_array($data) ? implode(',', $data) : $data]]]);
 
         $this->doRequest($url, $body, 'PUT');
