@@ -36,6 +36,7 @@ function gip_settings_page_html() {
 
     // Save settings
     if (isset($_POST['gip_save_settings'])) {
+        check_admin_referer('gip_save_settings', 'gip_nonce');
         update_option(GIP_OAUTH_OPTION_NAME, sanitize_text_field($_POST['gip_oauth']));
         update_option(GIP_SPREADSHEET_ID_OPTION_NAME, sanitize_text_field($_POST['gip_spreadsheet_id']));
         update_option(GIP_SHEET_ID_OPTION_NAME, sanitize_text_field($_POST['gip_sheet_id']));
@@ -102,50 +103,52 @@ function gip_settings_page_html() {
 }
 
 // Handle OAuth Authorization and Viewing Sheet
-if (isset($_POST['gip_authorize'])) {
-    // Handle the OAuth authorization process here
-    gip_authorize_google_client();
-}
-
-if (isset($_POST['gip_view_sheet'])) {
-    $spreadsheet_id = get_option(GIP_SPREADSHEET_ID_OPTION_NAME);
-    $sheet_id = get_option(GIP_SHEET_ID_OPTION_NAME);
-    if ($spreadsheet_id && $sheet_id) {
-        $url = "https://docs.google.com/spreadsheets/d/$spreadsheet_id/edit#gid=" . $sheet_id;
-        wp_redirect($url);
-        exit;
+add_action('admin_init', 'gip_handle_post_requests');
+function gip_handle_post_requests() {
+    if (isset($_POST['gip_authorize'])) {
+        gip_authorize_google_client();
     }
-}
 
-// Handle inserting data into the Google Sheet
-if (isset($_POST['gip_insert_data'])) {
-    $row = intval($_POST['gip_row_number']);
-    $col = intval($_POST['gip_column_number']);
-    $data = sanitize_text_field($_POST['gip_data_to_insert']);
-    gip_insert_data_into_sheet($row, $col, $data);
+    if (isset($_POST['gip_view_sheet'])) {
+        $spreadsheet_id = get_option(GIP_SPREADSHEET_ID_OPTION_NAME);
+        $sheet_id = get_option(GIP_SHEET_ID_OPTION_NAME);
+        if ($spreadsheet_id && $sheet_id) {
+            $url = "https://docs.google.com/spreadsheets/d/$spreadsheet_id/edit#gid=" . $sheet_id;
+            wp_redirect($url);
+            exit;
+        } else {
+            wp_die(__('Spreadsheet ID or Sheet ID is missing.', 'gsheet-integration-plugin'));
+        }
+    }
+
+    if (isset($_POST['gip_insert_data'])) {
+        $row = intval($_POST['gip_row_number']);
+        $col = intval($_POST['gip_column_number']);
+        $data = sanitize_text_field($_POST['gip_data_to_insert']);
+        gip_insert_data_into_sheet($row, $col, $data);
+    }
 }
 
 // Authorize the Google Client
 function gip_authorize_google_client() {
-    // Implement Google OAuth authorization logic here using google-client.php
     $oauth_data = get_option(GIP_OAUTH_OPTION_NAME);
     if ($oauth_data) {
         $client = create_google_client($oauth_data);
         // Redirect user to the OAuth URL or perform authorization
+        // You need to implement the logic inside create_google_client in google-client.php
     } else {
-        echo '<div class="error"><p>' . __('OAuth data missing. Please enter it in the settings.', 'gsheet-integration-plugin') . '</p></div>';
+        wp_die(__('OAuth data missing. Please enter it in the settings.', 'gsheet-integration-plugin'));
     }
 }
 
 // Insert data into the Google Sheet
 function gip_insert_data_into_sheet($row, $col, $data) {
-    // Implement logic to insert data into the Google Sheet
     $spreadsheet_id = get_option(GIP_SPREADSHEET_ID_OPTION_NAME);
     $sheet_id = get_option(GIP_SHEET_ID_OPTION_NAME);
     if ($spreadsheet_id && $sheet_id) {
         $client = create_google_client(get_option(GIP_OAUTH_OPTION_NAME));
         $service = new Google_Service_Sheets($client);
-        $range = "'$sheet_id'!R$row:C$col";
+        $range = "R$row:C$col";
         $values = [
             [$data]
         ];
@@ -158,7 +161,7 @@ function gip_insert_data_into_sheet($row, $col, $data) {
         $service->spreadsheets_values->update($spreadsheet_id, $range, $body, $params);
         echo '<div class="updated"><p>' . __('Data inserted successfully.', 'gsheet-integration-plugin') . '</p></div>';
     } else {
-        echo '<div class="error"><p>' . __('Spreadsheet ID or Sheet ID missing. Please enter it in the settings.', 'gsheet-integration-plugin') . '</p></div>';
+        wp_die(__('Spreadsheet ID or Sheet ID is missing. Please enter it in the settings.', 'gsheet-integration-plugin'));
     }
 }
 ?>
