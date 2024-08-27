@@ -8,8 +8,8 @@ Author: Your Name
 
 defined('ABSPATH') || exit;
 
-// Include the Google Client library
-require_once plugin_dir_path(__FILE__) . 'lib/google-client.php';
+// Include the Google Sheets client class
+require_once plugin_dir_path(__FILE__) . 'google-sheets-client.php';
 
 define('GIP_PLUGIN_NAME', __('GSheet Integration Plugin', 'gsheet-integration-plugin'));
 define('GIP_OAUTH_OPTION_NAME', 'gip_google_oauth');
@@ -37,7 +37,7 @@ function gip_settings_page_html() {
     // Save settings
     if (isset($_POST['gip_save_settings'])) {
         check_admin_referer('gip_save_settings', 'gip_nonce');
-        update_option(GIP_OAUTH_OPTION_NAME, sanitize_text_field($_POST['gip_oauth']));
+        update_option(GIP_OAUTH_OPTION_NAME, sanitize_textarea_field($_POST['gip_oauth']));
         update_option(GIP_SPREADSHEET_ID_OPTION_NAME, sanitize_text_field($_POST['gip_spreadsheet_id']));
         update_option(GIP_SHEET_ID_OPTION_NAME, sanitize_text_field($_POST['gip_sheet_id']));
         echo '<div class="updated"><p>' . __('Settings saved.', 'gsheet-integration-plugin') . '</p></div>';
@@ -133,9 +133,8 @@ function gip_handle_post_requests() {
 function gip_authorize_google_client() {
     $oauth_data = get_option(GIP_OAUTH_OPTION_NAME);
     if ($oauth_data) {
-        $client = create_google_client($oauth_data);
-        // Redirect user to the OAuth URL or perform authorization
-        // You need to implement the logic inside create_google_client in google-client.php
+        $client = new GoogleSheetsClient(json_decode($oauth_data, true), get_option(GIP_SPREADSHEET_ID_OPTION_NAME));
+        $client->authorize();
     } else {
         wp_die(__('OAuth data missing. Please enter it in the settings.', 'gsheet-integration-plugin'));
     }
@@ -146,19 +145,8 @@ function gip_insert_data_into_sheet($row, $col, $data) {
     $spreadsheet_id = get_option(GIP_SPREADSHEET_ID_OPTION_NAME);
     $sheet_id = get_option(GIP_SHEET_ID_OPTION_NAME);
     if ($spreadsheet_id && $sheet_id) {
-        $client = create_google_client(get_option(GIP_OAUTH_OPTION_NAME));
-        $service = new Google_Service_Sheets($client);
-        $range = "R$row:C$col";
-        $values = [
-            [$data]
-        ];
-        $body = new Google_Service_Sheets_ValueRange([
-            'values' => $values
-        ]);
-        $params = [
-            'valueInputOption' => 'RAW'
-        ];
-        $service->spreadsheets_values->update($spreadsheet_id, $range, $body, $params);
+        $client = new GoogleSheetsClient(json_decode(get_option(GIP_OAUTH_OPTION_NAME), true), "https://docs.google.com/spreadsheets/d/$spreadsheet_id/edit#gid=$sheet_id");
+        $client->writeDataToCell('R' . $row . 'C' . $col, $data);
         echo '<div class="updated"><p>' . __('Data inserted successfully.', 'gsheet-integration-plugin') . '</p></div>';
     } else {
         wp_die(__('Spreadsheet ID or Sheet ID is missing. Please enter it in the settings.', 'gsheet-integration-plugin'));
