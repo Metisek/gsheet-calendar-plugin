@@ -14,7 +14,6 @@ require_once plugin_dir_path(__FILE__) . 'lib/google-client.php';
 define('GIP_PLUGIN_NAME', __('GSheet Integration Plugin', 'gsheet-integration-plugin'));
 define('GIP_OAUTH_OPTION_NAME', 'gip_google_oauth');
 define('GIP_SPREADSHEET_ID_OPTION_NAME', 'gip_spreadsheet_id');
-define('GIP_SHEET_NAME_OPTION_NAME', 'gip_sheet_name');
 define('GIP_SHEET_ID_OPTION_NAME', 'gip_sheet_id');
 
 // Register plugin settings page
@@ -39,7 +38,6 @@ function gip_settings_page_html() {
     if (isset($_POST['gip_save_settings'])) {
         update_option(GIP_OAUTH_OPTION_NAME, sanitize_text_field($_POST['gip_oauth']));
         update_option(GIP_SPREADSHEET_ID_OPTION_NAME, sanitize_text_field($_POST['gip_spreadsheet_id']));
-        update_option(GIP_SHEET_NAME_OPTION_NAME, sanitize_text_field($_POST['gip_sheet_name']));
         update_option(GIP_SHEET_ID_OPTION_NAME, sanitize_text_field($_POST['gip_sheet_id']));
         echo '<div class="updated"><p>' . __('Settings saved.', 'gsheet-integration-plugin') . '</p></div>';
     }
@@ -47,7 +45,6 @@ function gip_settings_page_html() {
     // Get current settings
     $oauth_data = get_option(GIP_OAUTH_OPTION_NAME);
     $spreadsheet_id = get_option(GIP_SPREADSHEET_ID_OPTION_NAME);
-    $sheet_name = get_option(GIP_SHEET_NAME_OPTION_NAME);
     $sheet_id = get_option(GIP_SHEET_ID_OPTION_NAME);
 
     ?>
@@ -65,11 +62,7 @@ function gip_settings_page_html() {
                     <td><input type="text" name="gip_spreadsheet_id" value="<?php echo esc_attr($spreadsheet_id); ?>" class="regular-text"></td>
                 </tr>
                 <tr valign="top">
-                    <th scope="row"><?php _e('Sheet Name', 'gsheet-integration-plugin'); ?></th>
-                    <td><input type="text" name="gip_sheet_name" value="<?php echo esc_attr($sheet_name); ?>" class="regular-text"></td>
-                </tr>
-                <tr valign="top">
-                    <th scope="row"><?php _e('Sheet ID', 'gsheet-integration-plugin'); ?></th>
+                    <th scope="row"><?php _e('Sheet ID (GID)', 'gsheet-integration-plugin'); ?></th>
                     <td><input type="text" name="gip_sheet_id" value="<?php echo esc_attr($sheet_id); ?>" class="regular-text"></td>
                 </tr>
             </table>
@@ -116,9 +109,9 @@ if (isset($_POST['gip_authorize'])) {
 
 if (isset($_POST['gip_view_sheet'])) {
     $spreadsheet_id = get_option(GIP_SPREADSHEET_ID_OPTION_NAME);
-    $sheet_name = get_option(GIP_SHEET_NAME_OPTION_NAME);
-    if ($spreadsheet_id && $sheet_name) {
-        $url = "https://docs.google.com/spreadsheets/d/$spreadsheet_id/edit#gid=" . get_option(GIP_SHEET_ID_OPTION_NAME);
+    $sheet_id = get_option(GIP_SHEET_ID_OPTION_NAME);
+    if ($spreadsheet_id && $sheet_id) {
+        $url = "https://docs.google.com/spreadsheets/d/$spreadsheet_id/edit#gid=" . $sheet_id;
         wp_redirect($url);
         exit;
     }
@@ -135,7 +128,6 @@ if (isset($_POST['gip_insert_data'])) {
 // Authorize the Google Client
 function gip_authorize_google_client() {
     // Implement Google OAuth authorization logic here using google-client.php
-    // For example:
     $oauth_data = get_option(GIP_OAUTH_OPTION_NAME);
     if ($oauth_data) {
         $client = create_google_client($oauth_data);
@@ -149,11 +141,11 @@ function gip_authorize_google_client() {
 function gip_insert_data_into_sheet($row, $col, $data) {
     // Implement logic to insert data into the Google Sheet
     $spreadsheet_id = get_option(GIP_SPREADSHEET_ID_OPTION_NAME);
-    $sheet_name = get_option(GIP_SHEET_NAME_OPTION_NAME);
-    if ($spreadsheet_id && $sheet_name) {
+    $sheet_id = get_option(GIP_SHEET_ID_OPTION_NAME);
+    if ($spreadsheet_id && $sheet_id) {
         $client = create_google_client(get_option(GIP_OAUTH_OPTION_NAME));
         $service = new Google_Service_Sheets($client);
-        $range = "$sheet_name!R$row:C$col";
+        $range = "'$sheet_id'!R$row:C$col";
         $values = [
             [$data]
         ];
@@ -166,6 +158,7 @@ function gip_insert_data_into_sheet($row, $col, $data) {
         $service->spreadsheets_values->update($spreadsheet_id, $range, $body, $params);
         echo '<div class="updated"><p>' . __('Data inserted successfully.', 'gsheet-integration-plugin') . '</p></div>';
     } else {
-        echo '<div class="error"><p>' . __('Spreadsheet ID or Sheet Name missing. Please enter it in the settings.', 'gsheet-integration-plugin') . '</p></div>';
+        echo '<div class="error"><p>' . __('Spreadsheet ID or Sheet ID missing. Please enter it in the settings.', 'gsheet-integration-plugin') . '</p></div>';
     }
 }
+?>

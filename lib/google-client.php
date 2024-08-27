@@ -7,14 +7,26 @@ class GoogleSheetsClient
     private $clientSecretData;
     private $accessTokenInfo;
     private $spreadsheetId;
-    private $sheetName;
+    private $sheetGid;
 
-    public function __construct($clientSecretData, $spreadsheetId, $sheetName)
+    public function __construct($clientSecretData, $spreadsheetUrl)
     {
         $this->clientSecretData = $clientSecretData;
-        $this->spreadsheetId = $spreadsheetId;
-        $this->sheetName = $sheetName;
+        $this->spreadsheetId = $this->extractSpreadsheetId($spreadsheetUrl);
+        $this->sheetGid = $this->extractSheetGid($spreadsheetUrl);
         $this->loadAccessToken();
+    }
+
+    private function extractSpreadsheetId($url)
+    {
+        preg_match('/\/d\/([a-zA-Z0-9-_]+)/', $url, $matches);
+        return $matches[1];
+    }
+
+    private function extractSheetGid($url)
+    {
+        preg_match('/gid=([0-9]+)/', $url, $matches);
+        return $matches[1];
     }
 
     private function loadAccessToken()
@@ -119,7 +131,7 @@ class GoogleSheetsClient
 
     public function readAllData()
     {
-        $url = 'https://sheets.googleapis.com/v4/spreadsheets/' . $this->spreadsheetId . '/values/' . $this->sheetName;
+        $url = 'https://sheets.googleapis.com/v4/spreadsheets/' . $this->spreadsheetId . '/values/' . $this->sheetGid;
         $response = $this->doRequest($url);
 
         return isset($response['values']) ? $response['values'] : null;
@@ -127,7 +139,7 @@ class GoogleSheetsClient
 
     public function writeDataToCell($cell, $data)
     {
-        $url = 'https://sheets.googleapis.com/v4/spreadsheets/' . $this->spreadsheetId . '/values/' . $this->sheetName . '!' . $cell . '?valueInputOption=RAW';
+        $url = 'https://sheets.googleapis.com/v4/spreadsheets/' . $this->spreadsheetId . '/values/' . $this->sheetGid . '!' . $cell . '?valueInputOption=RAW';
         $body = json_encode(['values' => [[is_array($data) ? implode(',', $data) : $data]]]);
 
         $this->doRequest($url, $body, 'PUT');
